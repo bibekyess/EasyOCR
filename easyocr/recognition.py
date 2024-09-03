@@ -10,6 +10,15 @@ import importlib
 from .utils import CTCLabelConverter
 import math
 
+
+def copyStateDict(state_dict):
+    new_state_dict = OrderedDict()
+    for key, value in state_dict.items():
+        new_key = key[7:]
+        new_state_dict[new_key] = value
+    return new_state_dict
+
+
 def custom_mean(x):
     return x.prod()**(2.0/np.sqrt(len(x)))
 
@@ -96,9 +105,17 @@ class AlignCollate(object):
         image_tensors = torch.cat([t.unsqueeze(0) for t in resized_images], 0)
         return image_tensors
 
+
 def recognizer_predict(model, converter, test_loader, batch_max_length,\
                        ignore_idx, char_group_idx, decoder = 'greedy', beamWidth= 5, device = 'cpu'):
-    model.eval()
+
+    ov_device = ''
+    if 'ov_AUTO' not in device:
+        model.eval()
+    else:
+        ov_device = device
+        device = 'cpu'
+
     result = []
     with torch.no_grad():
         for image_tensors in test_loader:
@@ -108,8 +125,13 @@ def recognizer_predict(model, converter, test_loader, batch_max_length,\
             length_for_pred = torch.IntTensor([batch_max_length] * batch_size).to(device)
             text_for_pred = torch.LongTensor(batch_size, batch_max_length + 1).fill_(0).to(device)
 
-            preds = model(image, text_for_pred)
-
+            if ov_device!='':
+                res = model.infer_new_request({0: image})
+                preds = next(iter(res.values()))
+                preds=torch.tensor(preds)
+            else:
+                preds = model(image, text_for_pred)
+            
             # Select max probabilty (greedy decoding) then decode index to character
             preds_size = torch.IntTensor([preds.size(1)] * batch_size)
 
@@ -166,17 +188,36 @@ def get_recognizer(recog_network, network_params, character,\
     model = model_pkg.Model(num_class=num_class, **network_params)
 
     if device == 'cpu':
-        state_dict = torch.load(model_path, map_location=device)
-        new_state_dict = OrderedDict()
-        for key, value in state_dict.items():
-            new_key = key[7:]
-            new_state_dict[new_key] = value
-        model.load_state_dict(new_state_dict)
+        model.load_state_dict(copyStateDict(torch.load(model_path, map_location=device)))
         if quantize:
             try:
                 torch.quantization.quantize_dynamic(model, dtype=torch.qint8, inplace=True)
             except:
                 pass
+
+    elif 'ov_AUTO' in device:
+        import openvino as ov
+        import os
+        model.load_state_dict(copyStateDict(torch.load(model_path, map_location="cpu")))
+        core = ov.Core()
+        
+        cache_dir = os.getenv('EASYOCR_MODULE_PATH', os.path.expanduser('~/.EasyOCR/cache'))
+        ov_model_path = os.path.join(cache_dir, "easy_ocr_recognition", "ov_model.xml")
+        ov_model_bin_path = os.path.join(cache_dir, "easy_ocr_recognition", "ov_model.bin")
+
+        if os.path.exists(ov_model_path) and os.path.exists(ov_model_bin_path):
+            print("Loading OpenVINO model from file ...")
+            ov_model = core.read_model(model=ov_model_path)
+        else:
+            print("Converting Torch model to OpenVINO")
+            dummy_inp = (torch.zeros(1, 1, 64, 320), torch.zeros(1, 33))
+            ov_model = ov.convert_model(model, example_input=dummy_inp)
+            print("Saving converted OpenVINO model to file ...")
+            ov.save_model(ov_model, ov_model_path)
+
+        print("Compiling OpenVINO model ...")
+        model = core.compile_model(ov_model, device_name='AUTO')
+
     else:
         model = torch.nn.DataParallel(model).to(device)
         model.load_state_dict(torch.load(model_path, map_location=device))
