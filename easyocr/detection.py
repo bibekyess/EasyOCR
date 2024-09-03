@@ -39,11 +39,17 @@ def test_net(canvas_size, mag_ratio, net, image, text_threshold, link_threshold,
     x = [np.transpose(normalizeMeanVariance(n_img), (2, 0, 1))
          for n_img in img_resized_list]
     x = torch.from_numpy(np.array(x))
-    x = x.to(device)
 
-    # forward pass
-    with torch.no_grad():
-        y, feature = net(x)
+    if 'ov_AUTO' in device:
+        x = x.to('cpu')
+        # forward pass
+        res=net.infer_new_request({0: x})
+        y=torch.tensor(res[0])
+    else:
+        x = x.to(device)
+        # forward pass
+        with torch.no_grad():
+            y, feature = net(x)
 
     boxes_list, polys_list = [], []
     for out in y:
@@ -81,12 +87,36 @@ def get_detector(trained_model, device='cpu', quantize=True, cudnn_benchmark=Fal
                 torch.quantization.quantize_dynamic(net, dtype=torch.qint8, inplace=True)
             except:
                 pass
+        net.eval()
+
+    elif 'ov_AUTO' in device:
+        import openvino as ov
+        import os
+        net.load_state_dict(copyStateDict(torch.load(trained_model, map_location='cpu')))
+        net.eval()
+        core = ov.Core()
+
+        cache_dir = os.getenv('EASYOCR_MODULE_PATH', os.path.expanduser('~/.EasyOCR/cache'))
+        ov_model_path = os.path.join(cache_dir, "easy_ocr_detection", "ov_model.xml")
+        ov_model_bin_path = os.path.join(cache_dir, "easy_ocr_detection", "ov_model.bin")
+
+        if os.path.exists(ov_model_path) and os.path.exists(ov_model_bin_path):
+            print("Loading OpenVINO model from file ...")
+            ov_model = core.read_model(model=ov_model_path)
+        else:
+            print("Converting Torch model to OpenVINO")
+            dummy_inp = torch.rand(1, 3, 608, 800)
+            net_ov = ov.convert_model(net, example_input=dummy_inp)
+            print("Saving converted OpenVINO model to file ...")
+            ov.save_model(net_ov, ov_model_path)            
+        print("Compiling OpenVINO model ...")
+        net=core.compile_model(net_ov, device_name='AUTO')
+
     else:
         net.load_state_dict(copyStateDict(torch.load(trained_model, map_location=device)))
         net = torch.nn.DataParallel(net).to(device)
         cudnn.benchmark = cudnn_benchmark
-
-    net.eval()
+        net.eval()
     return net
 
 def get_textbox(detector, image, canvas_size, mag_ratio, text_threshold, link_threshold, low_text, poly, device, optimal_num_chars=None, **kwargs):
