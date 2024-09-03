@@ -110,7 +110,7 @@ def recognizer_predict(model, converter, test_loader, batch_max_length,\
                        ignore_idx, char_group_idx, decoder = 'greedy', beamWidth= 5, device = 'cpu'):
 
     ov_device = ''
-    if 'ov_AUTO' not in device:
+    if 'openvino' not in device:
         model.eval()
     else:
         ov_device = device
@@ -195,7 +195,7 @@ def get_recognizer(recog_network, network_params, character,\
             except:
                 pass
 
-    elif 'ov_AUTO' in device:
+    elif 'openvino' in device:
         import openvino as ov
         import os
         model.load_state_dict(copyStateDict(torch.load(model_path, map_location="cpu")))
@@ -216,7 +216,7 @@ def get_recognizer(recog_network, network_params, character,\
             ov.save_model(ov_model, ov_model_path)
 
         print("Compiling OpenVINO model ...")
-        model = core.compile_model(ov_model, device_name='AUTO')
+        model = core.compile_model(ov_model, device_name='CPU')
 
     else:
         model = torch.nn.DataParallel(model).to(device)

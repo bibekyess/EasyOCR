@@ -40,7 +40,7 @@ def test_net(canvas_size, mag_ratio, net, image, text_threshold, link_threshold,
          for n_img in img_resized_list]
     x = torch.from_numpy(np.array(x))
 
-    if 'ov_AUTO' in device:
+    if 'openvino' in device:
         x = x.to('cpu')
         # forward pass
         res=net.infer_new_request({0: x})
@@ -89,7 +89,7 @@ def get_detector(trained_model, device='cpu', quantize=True, cudnn_benchmark=Fal
                 pass
         net.eval()
 
-    elif 'ov_AUTO' in device:
+    elif 'openvino' in device:
         import openvino as ov
         import os
         net.load_state_dict(copyStateDict(torch.load(trained_model, map_location='cpu')))
@@ -102,7 +102,7 @@ def get_detector(trained_model, device='cpu', quantize=True, cudnn_benchmark=Fal
 
         if os.path.exists(ov_model_path) and os.path.exists(ov_model_bin_path):
             print("Loading OpenVINO model from file ...")
-            ov_model = core.read_model(model=ov_model_path)
+            net_ov = core.read_model(model=ov_model_path)
         else:
             print("Converting Torch model to OpenVINO")
             dummy_inp = torch.rand(1, 3, 608, 800)
@@ -110,7 +110,7 @@ def get_detector(trained_model, device='cpu', quantize=True, cudnn_benchmark=Fal
             print("Saving converted OpenVINO model to file ...")
             ov.save_model(net_ov, ov_model_path)            
         print("Compiling OpenVINO model ...")
-        net=core.compile_model(net_ov, device_name='AUTO')
+        net=core.compile_model(net_ov, device_name='CPU')
 
     else:
         net.load_state_dict(copyStateDict(torch.load(trained_model, map_location=device)))
