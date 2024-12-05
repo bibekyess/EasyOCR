@@ -42,8 +42,12 @@ def test_net(canvas_size, mag_ratio, net, image, text_threshold, link_threshold,
 
     if 'openvino' in device:
         x = x.to('cpu')
+        import time
+        start_time = time.time()
         # forward pass
-        res=net.infer_new_request({0: x})
+        # res=net.infer_new_request({0: x})
+        res = net([x])
+        print(f'Detection timing: {time.time()-start_time}')
         y=torch.tensor(res[0])
     else:
         x = x.to(device)
@@ -110,7 +114,7 @@ def get_detector(trained_model, device='cpu', quantize=True, cudnn_benchmark=Fal
             print("Saving converted OpenVINO model to file ...")
             ov.save_model(net_ov, ov_model_path)            
         print("Compiling OpenVINO model ...")
-        net=core.compile_model(net_ov, device_name='CPU')
+        net=core.compile_model(net_ov, device_name='GPU')
 
     else:
         net.load_state_dict(copyStateDict(torch.load(trained_model, map_location=device)))
