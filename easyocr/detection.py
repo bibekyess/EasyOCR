@@ -27,19 +27,22 @@ def test_net(canvas_size, mag_ratio, net, image, text_threshold, link_threshold,
     else:                                                        # image is single numpy array
         image_arrs = [image]
 
-    img_resized_list = []
-    # resize
-    for img in image_arrs:
-        img_resized, target_ratio, size_heatmap = resize_aspect_ratio(img, canvas_size,
-                                                                      interpolation=cv2.INTER_LINEAR,
-                                                                      mag_ratio=mag_ratio)
-        img_resized_list.append(img_resized)
-    ratio_h = ratio_w = 1 / target_ratio
-    # preprocessing
-    x = [np.transpose(normalizeMeanVariance(n_img), (2, 0, 1))
-         for n_img in img_resized_list]
-    x = torch.from_numpy(np.array(x))
+    # Assuming image_arrs is a list of NumPy arrays (original images)
+    img_processed_list = []
 
+    # Preprocessing each image without resizing
+    for img in image_arrs:
+        # Apply normalization directly without resizing
+        normalized_img = normalizeMeanVariance(img)
+        # Rearrange dimensions to match PyTorch input format (C, H, W)
+        img_processed = np.transpose(normalized_img, (2, 0, 1))
+        img_processed_list.append(img_processed)
+
+    # Convert to PyTorch tensor
+    x = torch.from_numpy(np.array(img_processed_list))
+    
+    ratio_h = ratio_w = 1
+    
     if 'openvino' in device:
         x = x.to('cpu')
         import time
