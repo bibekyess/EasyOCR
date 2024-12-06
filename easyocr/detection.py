@@ -52,8 +52,8 @@ def test_net(canvas_size, mag_ratio, net, image, text_threshold, link_threshold,
         import time
         start_time = time.time()
         # forward pass
-        # res=net.infer_new_request({0: x})
-        res = net([x])
+        res=net.infer_new_request({0: x})
+        # res = net([x])
         logging.info(f'Detection timing: {time.time()-start_time}')
         y=torch.tensor(res[0])
     else:

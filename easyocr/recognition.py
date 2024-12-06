@@ -131,8 +131,8 @@ def recognizer_predict(model, converter, test_loader, batch_max_length,\
             if ov_device!='':
                 import time
                 start_time = time.time()
-                # res = model.infer_new_request({0: image})
-                res = model([image])
+                res = model.infer_new_request({0: image})
+                # res = model([image])
                 logging.info(f'Recognition model timing: {time.time()-start_time}')
                 preds = next(iter(res.values()))
                 preds=torch.tensor(preds)
