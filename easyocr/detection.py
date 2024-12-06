@@ -114,7 +114,9 @@ def get_detector(trained_model, device='cpu', quantize=True, cudnn_benchmark=Fal
             print("Saving converted OpenVINO model to file ...")
             ov.save_model(net_ov, ov_model_path)            
         print("Compiling OpenVINO model ...")
-        net=core.compile_model(net_ov, device_name='GPU')
+        static_shape = [1, 3, 608, 800]  # N, C, H, W
+        net_ov.reshape({0: static_shape})  # Input 0 will have this shape
+        net=core.compile_model(net_ov, device_name='AUTO:NPU,GPU,CPU')
 
     else:
         net.load_state_dict(copyStateDict(torch.load(trained_model, map_location=device)))

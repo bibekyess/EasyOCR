@@ -220,7 +220,7 @@ def get_recognizer(recog_network, network_params, character,\
             ov.save_model(ov_model, ov_model_path)
 
         print("Compiling OpenVINO model ...")
-        model = core.compile_model(ov_model, device_name='CPU')
+        model = core.compile_model(ov_model, device_name='GPU')
 
     else:
         model = torch.nn.DataParallel(model).to(device)
