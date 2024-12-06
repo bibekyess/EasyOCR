@@ -9,7 +9,10 @@ from collections import OrderedDict
 import importlib
 from .utils import CTCLabelConverter
 import math
+import logging
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def copyStateDict(state_dict):
     new_state_dict = OrderedDict()
@@ -130,7 +133,7 @@ def recognizer_predict(model, converter, test_loader, batch_max_length,\
                 start_time = time.time()
                 # res = model.infer_new_request({0: image})
                 res = model([image])
-                print(f'Recognition model timing: {time.time()-start_time}')
+                logging.info(f'Recognition model timing: {time.time()-start_time}')
                 preds = next(iter(res.values()))
                 preds=torch.tensor(preds)
             else:
@@ -210,16 +213,16 @@ def get_recognizer(recog_network, network_params, character,\
         ov_model_bin_path = os.path.join(cache_dir, "easy_ocr_recognition", "ov_model.bin")
 
         if os.path.exists(ov_model_path) and os.path.exists(ov_model_bin_path):
-            print("Loading OpenVINO model from file ...")
+            logging.info("Loading OpenVINO model from file ...")
             ov_model = core.read_model(model=ov_model_path)
         else:
-            print("Converting Torch model to OpenVINO")
+            logging.info("Converting Torch model to OpenVINO")
             dummy_inp = (torch.zeros(1, 1, 64, 320), torch.zeros(1, 33))
             ov_model = ov.convert_model(model, example_input=dummy_inp)
-            print("Saving converted OpenVINO model to file ...")
+            logging.info("Saving converted OpenVINO model to file ...")
             ov.save_model(ov_model, ov_model_path)
 
-        print("Compiling OpenVINO model ...")
+        logging.info("Compiling OpenVINO model ...")
         model = core.compile_model(ov_model, device_name='CPU')
 
     else:

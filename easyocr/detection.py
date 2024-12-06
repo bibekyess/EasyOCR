@@ -9,6 +9,10 @@ import numpy as np
 from .craft_utils import getDetBoxes, adjustResultCoordinates
 from .imgproc import resize_aspect_ratio, normalizeMeanVariance
 from .craft import CRAFT
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def copyStateDict(state_dict):
     if list(state_dict.keys())[0].startswith("module"):
@@ -50,7 +54,7 @@ def test_net(canvas_size, mag_ratio, net, image, text_threshold, link_threshold,
         # forward pass
         # res=net.infer_new_request({0: x})
         res = net([x])
-        print(f'Detection timing: {time.time()-start_time}')
+        logging.info(f'Detection timing: {time.time()-start_time}')
         y=torch.tensor(res[0])
     else:
         x = x.to(device)
@@ -108,15 +112,15 @@ def get_detector(trained_model, device='cpu', quantize=True, cudnn_benchmark=Fal
         ov_model_bin_path = os.path.join(cache_dir, "easy_ocr_detection", "ov_model.bin")
 
         if os.path.exists(ov_model_path) and os.path.exists(ov_model_bin_path):
-            print("Loading OpenVINO model from file ...")
+            logging.info("Loading OpenVINO model from file ...")
             net_ov = core.read_model(model=ov_model_path)
         else:
-            print("Converting Torch model to OpenVINO")
+            logging.info("Converting Torch model to OpenVINO")
             dummy_inp = torch.rand(1, 3, 608, 800)
             net_ov = ov.convert_model(net, example_input=dummy_inp)
-            print("Saving converted OpenVINO model to file ...")
+            logging.info("Saving converted OpenVINO model to file ...")
             ov.save_model(net_ov, ov_model_path)            
-        print("Compiling OpenVINO model ...")
+        logging.info("Compiling OpenVINO model ...")
         static_shape = [1, 3, 1130, 800]  # N, C, H, W 
         net_ov.reshape({0: static_shape})  # Input 0 will have this shape
         net=core.compile_model(net_ov, device_name='AUTO:NPU,GPU,CPU')
