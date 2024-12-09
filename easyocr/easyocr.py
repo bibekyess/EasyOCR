@@ -16,6 +16,8 @@ from PIL import Image
 from logging import getLogger
 import yaml
 import json
+import time
+
 
 if sys.version_info[0] == 2:
     from io import open
@@ -377,21 +379,31 @@ class Reader(object):
         # without gpu/parallelization, it is faster to process image one by one
         if ((batch_size == 1) or (self.device == 'cpu')) and not rotation_info:
             result = []
+            DEBUG_MODE=True
             for bbox in horizontal_list:
                 h_list = [bbox]
                 f_list = []
                 image_list, max_width = get_image_list(h_list, f_list, img_cv_grey, model_height = imgH)
+                start_time = time.time()
                 result0 = get_text(self.character, imgH, int(max_width), self.recognizer, self.converter, image_list,\
                               ignore_char, decoder, beamWidth, batch_size, contrast_ths, adjust_contrast, filter_ths,\
                               workers, self.device)
+                if DEBUG_MODE:
+                    LOGGER.info(f'Recognition model timing: {time.time()-start_time}')
+                    DEBUG_MODE=False
+                
                 result += result0
             for bbox in free_list:
                 h_list = []
                 f_list = [bbox]
                 image_list, max_width = get_image_list(h_list, f_list, img_cv_grey, model_height = imgH)
+                start_time = time.time()
                 result0 = get_text(self.character, imgH, int(max_width), self.recognizer, self.converter, image_list,\
                               ignore_char, decoder, beamWidth, batch_size, contrast_ths, adjust_contrast, filter_ths,\
                               workers, self.device)
+                if DEBUG_MODE:
+                    LOGGER.info(f'Recognition model timing: {time.time()-start_time}')
+                    DEBUG_MODE=False                
                 result += result0
         # default mode will try to process multiple boxes at the same time
         else:

@@ -120,9 +120,8 @@ def recognizer_predict(model, converter, test_loader, batch_max_length,\
         device = 'cpu'
 
     result = []
-    DEBUG_PRINT = True
     with torch.no_grad():
-        for image_tensors in test_loader:
+        for idx, image_tensors in enumerate(test_loader):
             batch_size = image_tensors.size(0)
             image = image_tensors.to(device)
             # For max length prediction
@@ -131,13 +130,11 @@ def recognizer_predict(model, converter, test_loader, batch_max_length,\
 
             if ov_device!='':
                 import time
-                start_time = time.time()
+                # start_time = time.time()
                 res = model.infer_new_request({0: image})
                 # res = model([image])
-                if DEBUG_PRINT:
-                    # Only print for the first iteration for sanity
-                    logging.info(f'Recognition model timing: {time.time()-start_time}')
-                    DEBUG_PRINT=False
+                # Only print for the first iteration for sanity
+                # logging.info(f'Recognition model timing: {time.time()-start_time}')
                     
                 preds = next(iter(res.values()))
                 preds=torch.tensor(preds)
@@ -210,7 +207,6 @@ def get_recognizer(recog_network, network_params, character,\
     elif 'openvino' in device:
         import openvino as ov
         import os
-        model.load_state_dict(copyStateDict(torch.load(model_path, map_location="cpu")))
         core = ov.Core()
         
         cache_dir = os.getenv('EASYOCR_MODULE_PATH', os.path.expanduser('~/.EasyOCR/cache'))
@@ -222,6 +218,7 @@ def get_recognizer(recog_network, network_params, character,\
             ov_model = core.read_model(model=ov_model_path)
         else:
             logging.info("Converting Torch model to OpenVINO")
+            model.load_state_dict(copyStateDict(torch.load(model_path, map_location="cpu")))
             dummy_inp = (torch.zeros(1, 1, 64, 320), torch.zeros(1, 33))
             ov_model = ov.convert_model(model, example_input=dummy_inp)
             logging.info("Saving converted OpenVINO model to file ...")

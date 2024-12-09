@@ -103,8 +103,6 @@ def get_detector(trained_model, device='cpu', quantize=True, cudnn_benchmark=Fal
     elif 'openvino' in device:
         import openvino as ov
         import os
-        net.load_state_dict(copyStateDict(torch.load(trained_model, map_location='cpu')))
-        net.eval()
         core = ov.Core()
 
         cache_dir = os.getenv('EASYOCR_MODULE_PATH', os.path.expanduser('~/.EasyOCR/cache'))
@@ -115,6 +113,8 @@ def get_detector(trained_model, device='cpu', quantize=True, cudnn_benchmark=Fal
             logging.info("Loading OpenVINO model from file ...")
             net_ov = core.read_model(model=ov_model_path)
         else:
+            net.load_state_dict(copyStateDict(torch.load(trained_model, map_location='cpu')))
+            net.eval()
             logging.info("Converting Torch model to OpenVINO")
             dummy_inp = torch.rand(1, 3, 608, 800)
             net_ov = ov.convert_model(net, example_input=dummy_inp)
