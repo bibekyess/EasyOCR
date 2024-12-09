@@ -120,6 +120,7 @@ def recognizer_predict(model, converter, test_loader, batch_max_length,\
         device = 'cpu'
 
     result = []
+    DEBUG_PRINT = True
     with torch.no_grad():
         for image_tensors in test_loader:
             batch_size = image_tensors.size(0)
@@ -133,7 +134,11 @@ def recognizer_predict(model, converter, test_loader, batch_max_length,\
                 start_time = time.time()
                 res = model.infer_new_request({0: image})
                 # res = model([image])
-                logging.info(f'Recognition model timing: {time.time()-start_time}')
+                if DEBUG_PRINT:
+                    # Only print for the first iteration for sanity
+                    logging.info(f'Recognition model timing: {time.time()-start_time}')
+                    DEBUG_PRINT=False
+                    
                 preds = next(iter(res.values()))
                 preds=torch.tensor(preds)
             else:
