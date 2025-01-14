@@ -121,9 +121,12 @@ def get_detector(trained_model, device='cpu', quantize=True, cudnn_benchmark=Fal
             logging.info("Saving converted OpenVINO model to file ...")
             ov.save_model(net_ov, ov_model_path)            
         logging.info("Compiling OpenVINO model ...")
-        static_shape = [1, 3, 1130, 800]  # N, C, H, W 
-        net_ov.reshape({0: static_shape})  # Input 0 will have this shape
-        net=core.compile_model(net_ov, device_name='AUTO:NPU,GPU,CPU')
+        
+        # TODO Need to find out a appropriate image shape. After succesive experiments, the image size is fixed like this
+        # REASON: To run in NPU, we need to fix the input image size
+        # static_shape = [1, 3, 2260, 1600]  # N, C, H, W 
+        # net_ov.reshape({0: static_shape})  # Input 0 will have this shape
+        net=core.compile_model(net_ov, device_name='AUTO:GPU,CPU')
 
     else:
         net.load_state_dict(copyStateDict(torch.load(trained_model, map_location=device)))
